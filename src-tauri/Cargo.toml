@@ -1,0 +1,68 @@
+[package]
+name = "meraki-flash"
+version = "0.1.0"
+description = "Crie pendrives bootáveis de Windows e Linux com segurança."
+authors = ["Meraki Flash"]
+edition = "2024"
+rust-version = "1.95"
+
+[workspace]
+members = ["crates/meraki-flash-core"]
+exclude = ["crates/wimlib-sys"]
+resolver = "2"
+
+[patch.crates-io]
+wimlib-sys = { path = "crates/wimlib-sys" }
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sysinfo = { version = "0.39", default-features = false, features = ["disk"] }
+thiserror = "2"
+
+[lib]
+name = "meraki_flash_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+
+[dependencies]
+tauri = { version = "2.11", features = [] }
+tauri-plugin-dialog = "2.7"
+meraki-flash-core = { path = "crates/meraki-flash-core" }
+base64 = "0.22"
+fatfs = { version = "0.3.6", default-features = false, features = ["alloc", "std"] }
+fscommon = "0.1.1"
+isomage = { version = "2.1.0", default-features = false, features = ["iso", "udf"] }
+mbrman = "0.6.1"
+quick-xml = "0.38"
+serde.workspace = true
+serde_json.workspace = true
+tempfile = "3"
+thiserror.workspace = true
+tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "process", "sync", "time"] }
+uuid = { version = "1", features = ["v4"] }
+
+# Linux: desmontagem segura e verificação de privilégios antes da escrita em /dev/*.
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+nix = { version = "0.31", features = ["fs", "mount", "user"] }
+wimlib-sys = { version = "0.3.1", features = ["bundled"] }
+
+# Windows: UAC (ShellExecuteW/runas), acesso a \\.\PhysicalDriveN e DeviceIoControl.
+[target.'cfg(target_os = "windows")'.dependencies.windows-sys]
+version = "0.61"
+features = [
+  "Win32_Foundation",
+  "Win32_Devices_DeviceAndDriverInstallation",
+  "Win32_Security",
+  "Win32_Storage_FileSystem",
+  "Win32_System_IO",
+  "Win32_System_Ioctl",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Registry",
+  "Win32_System_Threading",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+]

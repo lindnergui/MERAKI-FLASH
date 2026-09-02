@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <linearGradient id="background" x1="90" y1="64" x2="934" y2="960" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#12131A"/>
+      <stop offset="1" stop-color="#1A1525"/>
+    </linearGradient>
+    <linearGradient id="neon" x1="262" y1="225" x2="770" y2="820" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00F0FF"/>
+      <stop offset="0.55" stop-color="#2878FF"/>
+      <stop offset="1" stop-color="#A23BFF"/>
+    </linearGradient>
+    <filter id="glow" x="120" y="120" width="784" height="784" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="28"/>
+    </filter>
+  </defs>
+
+  <rect x="52" y="52" width="920" height="920" rx="224" fill="url(#background)"/>
+  <rect x="57" y="57" width="910" height="910" rx="219" stroke="#00F0FF" stroke-opacity=".16" stroke-width="10"/>
+
+  <path d="M340 455h344v300c0 71-58 129-129 129h-86c-71 0-129-58-129-129V455Z" stroke="url(#neon)" stroke-width="58" stroke-linejoin="round" opacity=".42" filter="url(#glow)"/>
+  <path d="M340 455h344v300c0 71-58 129-129 129h-86c-71 0-129-58-129-129V455Z" stroke="url(#neon)" stroke-width="48" stroke-linejoin="round"/>
+  <path d="M420 455V319h184v136M444 255v64M580 255v64" stroke="url(#neon)" stroke-width="48" stroke-linecap="round"/>
+  <path d="M512 710V510m0 0-84 86m84-86 84 86" stroke="url(#neon)" stroke-width="48" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
