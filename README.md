@@ -18,7 +18,7 @@
 
 ## Download
 
-> [!IMPORTANTE]
+> [!IMPORTANT]
 > Baixe o Meraki Flash somente pela página oficial de
 > [Releases do GitHub](https://github.com/lindnergui/MERAKI-FLASH/releases/latest).
 > A versão atual é a **v0.1.0**, disponível para computadores x86-64.
@@ -82,7 +82,7 @@ pendrive para gravação.
 5. Clique em **Gravar pendrive**, confira o dispositivo e confirme a operação.
 6. Aguarde a conclusão sem remover o pendrive.
 
-> [!CUIDADO]
+> [!CAUTION]
 > A gravação apaga todos os dados do dispositivo selecionado. Confirme o nome,
 > a capacidade e o caminho do pendrive antes de continuar.
 
