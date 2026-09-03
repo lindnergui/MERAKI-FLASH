@@ -20,6 +20,7 @@ import {
   Usb,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import merakiFlashIcon from "../src-tauri/icons/icon.png";
 import { UnattendPanel } from "./components/UnattendPanel";
 import {
   DEFAULT_UNATTEND_OPTIONS,
@@ -607,35 +608,8 @@ function App() {
 
 function MerakiMark() {
   return (
-    <div className="relative flex size-11 items-center justify-center rounded-[14px] border border-[#00F0FF]/20 bg-[#12131a] shadow-[0_0_24px_rgba(0,240,255,0.08)]">
-      <svg viewBox="0 0 44 44" className="size-8" fill="none" aria-hidden="true">
-        <defs>
-          <linearGradient id="meraki-gradient" x1="7" y1="7" x2="36" y2="37">
-            <stop stopColor="#00F0FF" />
-            <stop offset="0.55" stopColor="#2878FF" />
-            <stop offset="1" stopColor="#A23BFF" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M14.5 19.5h15v13a4 4 0 0 1-4 4h-7a4 4 0 0 1-4-4v-13Z"
-          stroke="url(#meraki-gradient)"
-          strokeWidth="2.4"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M18 19.5v-5h8v5M19 11.5v3m6-3v3"
-          stroke="url(#meraki-gradient)"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-        />
-        <path
-          d="M22 30V22m0 0-3 3m3-3 3 3"
-          stroke="url(#meraki-gradient)"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+    <div className="relative size-11 overflow-hidden rounded-[14px] border border-[#00F0FF]/20 bg-[#12131a] shadow-[0_0_24px_rgba(0,240,255,0.12)]">
+      <img src={merakiFlashIcon} alt="" className="size-full object-cover" aria-hidden="true" />
     </div>
   );
 }

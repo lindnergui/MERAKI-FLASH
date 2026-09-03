@@ -30,9 +30,41 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["appimage", "rpm", "nsis"],
+    "publisher": "Meraki",
+    "homepage": "https://github.com/lindnergui/MERAKI-FLASH",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "copyright": "Copyright © 2026 Guilherme Lindner",
+    "license": "MIT",
+    "licenseFile": "../LICENSE",
     "category": "Utility",
-    "shortDescription": "Crie pendrives bootáveis com segurança."
+    "shortDescription": "Crie pendrives bootáveis com segurança.",
+    "longDescription": "Grave imagens ISO do Windows e Linux em dispositivos USB com validações de segurança, progresso em tempo real e suporte a instalações Windows automatizadas.",
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      },
+      "rpm": {
+        "epoch": 0,
+        "release": "1"
+      }
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "installMode": "currentUser",
+        "compression": "lzma"
+      }
+    }
   }
 }
-

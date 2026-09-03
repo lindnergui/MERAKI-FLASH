@@ -1,0 +1,82 @@
+name: Release Meraki Flash
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux — AppImage e RPM
+            platform: ubuntu-22.04
+            bundles: appimage,rpm
+          - name: Windows — NSIS EXE
+            platform: windows-latest
+            bundles: nsis
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v7
+
+      - name: Instalar dependências do Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf automake build-essential clang gawk libappindicator3-dev \
+            libclang-dev libssl-dev libtool libwebkit2gtk-4.1-dev libxdo-dev \
+            patchelf pkg-config rpm librsvg2-dev xdg-utils
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar Rust estável
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restaurar cache do Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Instalar dependências do frontend
+        run: npm ci
+
+      - name: Validar versão da tag
+        shell: bash
+        run: >-
+          node -e "const v = require('./src-tauri/tauri.conf.json').version;
+          if (process.env.GITHUB_REF_NAME !== 'v' + v) {
+          throw new Error('A tag ' + process.env.GITHUB_REF_NAME +
+          ' não corresponde à versão v' + v + ' do tauri.conf.json'); }"
+
+      - name: Compilar e publicar instaladores
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Meraki Flash ${{ github.ref_name }}
+          releaseBody: |
+            Instaladores oficiais do Meraki Flash.
+
+            - Linux: AppImage e RPM
+            - Windows: instalador EXE (NSIS)
+          releaseDraft: false
+          prerelease: false
+          args: --bundles ${{ matrix.bundles }}

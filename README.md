@@ -154,3 +154,20 @@ npm run build
 Os testes automatizados gravam somente em arquivos temporários, incluindo uma
 imagem esparsa de 3 GiB usada para validar MBR + FAT32. Nunca use um disco real
 como alvo de teste sem uma bancada dedicada e dados descartáveis.
+
+## Lançamentos
+
+O workflow `.github/workflows/release.yml` compila os instaladores oficiais
+quando uma tag SemVer correspondente à versão de `src-tauri/tauri.conf.json` é
+enviada ao GitHub. Por exemplo, para a versão `0.1.0`:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+O GitHub Actions gera um AppImage e um RPM no Ubuntu 22.04, além de um
+instalador EXE com NSIS no Windows, e anexa os três arquivos a uma GitHub
+Release pública. O instalador Windows ainda não é assinado digitalmente; para
+uma distribuição ampla, configure um certificado de assinatura de código antes
+do lançamento estável.

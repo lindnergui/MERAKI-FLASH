@@ -2,6 +2,13 @@
   "name": "meraki-flash",
   "private": true,
   "version": "0.1.0",
+  "description": "Crie pendrives bootáveis de Windows e Linux com segurança.",
+  "license": "MIT",
+  "homepage": "https://github.com/lindnergui/MERAKI-FLASH",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lindnergui/MERAKI-FLASH.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
