@@ -21,13 +21,13 @@
 > [!IMPORTANT]
 > Baixe o Meraki Flash somente pela página oficial de
 > [Releases do GitHub](https://github.com/lindnergui/MERAKI-FLASH/releases/latest).
-> A versão atual é a **v0.1.0**, disponível para computadores x86-64.
+> A versão atual é a **v1.0.0**, disponível para computadores x86-64.
 
 | Sistema | Formato | Distribuições | Download oficial |
 | --- | --- | --- | --- |
-| Linux | AppImage | Formato portátil para a maioria das distribuições | [Baixar AppImage v0.1.0](https://github.com/lindnergui/MERAKI-FLASH/releases/download/v0.1.0/Meraki.Flash_0.1.0_amd64.AppImage) |
-| Linux | RPM | Fedora, RHEL, openSUSE e derivados | [Baixar RPM v0.1.0](https://github.com/lindnergui/MERAKI-FLASH/releases/download/v0.1.0/Meraki.Flash-0.1.0-1.x86_64.rpm) |
-| Windows | EXE | Windows 10 e Windows 11 | [Baixar instalador v0.1.0](https://github.com/lindnergui/MERAKI-FLASH/releases/download/v0.1.0/Meraki.Flash_0.1.0_x64-setup.exe) |
+| Linux | AppImage | Formato portátil para a maioria das distribuições | [Baixar AppImage v1.0.0](https://github.com/lindnergui/MERAKI-FLASH/releases/download/v1.0.0/Meraki.Flash_1.0.0_amd64.AppImage) |
+| Linux | RPM | Fedora, RHEL, openSUSE e derivados | [Baixar RPM v1.0.0](https://github.com/lindnergui/MERAKI-FLASH/releases/download/v1.0.0/Meraki.Flash-1.0.0-1.x86_64.rpm) |
+| Windows | EXE | Windows 10 e Windows 11 | [Baixar instalador v1.0.0](https://github.com/lindnergui/MERAKI-FLASH/releases/download/v1.0.0/Meraki.Flash_1.0.0_x64-setup.exe) |
 
 [Ver todas as versões e notas de lançamento](https://github.com/lindnergui/MERAKI-FLASH/releases)
 
@@ -95,6 +95,8 @@ pendrive para gravação.
 - detecção restrita a dispositivos USB removíveis;
 - revalidação do hardware antes de qualquer escrita destrutiva;
 - progresso em tempo real com porcentagem, velocidade e tempo estimado;
+- aviso opcional de novas versões ao abrir, sem instalação automática;
+- releitura e comparação dos dados após gravar uma ISO Linux;
 - interface nativa multiplataforma construída com Tauri 2.
 
 ## Segurança da gravação
@@ -231,8 +233,9 @@ revise as obrigações da LGPL e o aviso do binding em
 ### Testes
 
 ```bash
-cargo test --offline --manifest-path src-tauri/Cargo.toml
-cargo clippy --offline --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+npm test
+cargo test --locked --workspace --manifest-path src-tauri/Cargo.toml
+cargo clippy --locked --workspace --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 npm run build
 ```
 
@@ -251,14 +254,15 @@ Cada lançamento executa dois builds independentes:
 - **Ubuntu 22.04:** gera AppImage e RPM;
 - **Windows Runner:** gera o instalador EXE com NSIS.
 
-Após os builds, o GitHub Actions cria uma Release pública e anexa os três
-artefatos automaticamente. A release estável atual usa a tag `v0.1.0`. Para
+Cada build executa os testes e o Clippy antes de gerar instaladores. A release
+fica em rascunho até ambos os sistemas passarem e os três artefatos estarem
+anexados; só então é publicada automaticamente. A release estável atual usa a tag `v1.0.0`. Para
 publicar a próxima correção, depois de atualizar a versão do projeto para
-`0.1.1`, por exemplo:
+`1.0.1`, por exemplo:
 
 ```bash
-git tag -a v0.1.1 -m "Meraki Flash v0.1.1"
-git push origin v0.1.1
+git tag -a v1.0.1 -m "Meraki Flash v1.0.1"
+git push origin v1.0.1
 ```
 
 O instalador Windows ainda não possui assinatura digital. Para distribuição em
@@ -267,3 +271,14 @@ larga escala, configure um certificado de assinatura de código no pipeline.
 ## Licença
 
 Distribuído sob a licença MIT. Consulte o arquivo [LICENSE](LICENSE).
+
+## Avisos de atualização
+
+A partir da v1.0.0, ao abrir o aplicativo ele consulta a última release estável
+pública no GitHub, com limite de cinco segundos. O aviso pode ser fechado em
+**Agora não** e a consulta pode ser desativada em **Avisar sobre novas versões ao
+abrir**. A preferência fica salva neste computador. Não há download ou instalação
+automática, e falhas de rede não interrompem o uso.
+
+A v0.1.0 já distribuída não contém esse recurso: seus usuários precisam instalar
+a v1.0.0 manualmente uma vez para receber avisos de lançamentos futuros.

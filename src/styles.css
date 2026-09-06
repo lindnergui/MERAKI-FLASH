@@ -59,6 +59,7 @@ button:not(:disabled) {
 }
 
 .meraki-card {
+  min-width: 0;
   border: 1px solid rgba(170, 117, 255, 0.1);
   border-radius: 1rem;
   background:

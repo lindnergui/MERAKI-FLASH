@@ -1,10 +1,12 @@
 use crate::{DiscoveryError, UsbDevice, stable_device_id};
 use serde::Deserialize;
 use std::process::Command;
+use std::os::windows::process::CommandExt;
 
 const POWERSHELL: &str = "powershell.exe";
 const DISCOVERY_SCRIPT: &str = r#"
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $result = @(
   foreach ($disk in Get-CimInstance Win32_DiskDrive) {
     if ($disk.InterfaceType -ne 'USB' -or $disk.MediaType -notmatch 'Removable') { continue }
@@ -23,7 +25,7 @@ $result = @(
       MountPoints = $mounts
       FileSystem = [string](($logical | Select-Object -First 1).FileSystem)
       AvailableBytes = [uint64](($logical | Measure-Object -Property FreeSpace -Sum).Sum)
-      IsSystem = [bool]($mounts -contains ($env:SystemDrive + '\'))
+      IsSystem = [bool](($mounts -contains ($env:SystemDrive + '\')) -or ($diskInfo -and ($diskInfo.IsSystem -or $diskInfo.IsBoot)))
     }
   }
 )
@@ -47,6 +49,7 @@ struct WindowsDisk {
 
 pub(super) fn discover_removable_devices() -> Result<Vec<UsbDevice>, DiscoveryError> {
     let output = Command::new(POWERSHELL)
+        .creation_flags(0x08000000) // CREATE_NO_WINDOW
         .args([
             "-NoProfile",
             "-NonInteractive",

@@ -1,7 +1,9 @@
 name: Release Meraki Flash
 
 on:
+  workflow_dispatch:
   push:
+    branches: [main, "codex/**"]
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
 
@@ -57,7 +59,20 @@ jobs:
       - name: Instalar dependências do frontend
         run: npm ci
 
+      - name: Testar interface e avisos de atualização
+        run: npm test
+
+      - name: Compilar interface
+        run: npm run build
+
+      - name: Testar motores de gravação
+        run: cargo test --locked --workspace --manifest-path src-tauri/Cargo.toml
+
+      - name: Analisar Rust
+        run: cargo clippy --locked --workspace --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
       - name: Validar versão da tag
+        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: >-
           node -e "const v = require('./src-tauri/tauri.conf.json').version;
@@ -66,17 +81,31 @@ jobs:
           ' não corresponde à versão v' + v + ' do tauri.conf.json'); }"
 
       - name: Compilar e publicar instaladores
+        if: startsWith(github.ref, 'refs/tags/')
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Meraki Flash ${{ github.ref_name }}
-          releaseBody: |
-            Instaladores oficiais do Meraki Flash.
-
-            - Linux: AppImage e RPM
-            - Windows: instalador EXE (NSIS)
-          releaseDraft: false
+          releaseBody: Consulte as notas completas do lançamento após a conclusão dos builds.
+          releaseDraft: true
           prerelease: false
           args: --bundles ${{ matrix.bundles }}
+
+  publish:
+    name: Publicar release completa
+    needs: build-and-release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Conferir os três instaladores e publicar
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          gh release view "$RELEASE_TAG" --json assets > assets.json
+          node -e "const a=require('./assets.json').assets; for(const suffix of ['.AppImage','.rpm','-setup.exe']) if(!a.some(x=>x.name.endsWith(suffix)&&x.size>0)) throw Error('Artefato ausente: '+suffix)"
+          gh release edit "$RELEASE_TAG" --draft=false --latest --notes-file RELEASE_NOTES.md

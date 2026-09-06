@@ -1,6 +1,6 @@
 [package]
 name = "meraki-flash"
-version = "0.1.0"
+version = "1.0.0"
 description = "Crie pendrives bootáveis de Windows e Linux com segurança."
 authors = ["Guilherme Lindner"]
 license = "MIT"

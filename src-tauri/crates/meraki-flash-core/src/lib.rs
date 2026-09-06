@@ -107,7 +107,8 @@ pub fn validate_iso_for_device(
 
     if device.mount_points.iter().any(|mount_point| {
         let mount = Path::new(mount_point);
-        mount.is_absolute() && mount != Path::new("/") && iso_path.starts_with(mount)
+        mount.is_absolute() && mount != Path::new("/")
+            && mount.canonicalize().is_ok_and(|mount| iso_path.starts_with(mount))
     }) {
         return Err("a ISO está armazenada no próprio dispositivo de destino".to_owned());
     }
@@ -117,4 +118,30 @@ pub fn validate_iso_for_device(
 
 pub(crate) fn stable_device_id(path: &str, serial: Option<&str>, size: u64) -> String {
     format!("{path}::{}::{size}", serial.unwrap_or("sem-serial"))
+}
+
+#[cfg(test)]
+mod validation_tests {
+    use super::*;
+
+    #[test]
+    fn rejects_iso_on_destination_with_canonical_paths() {
+        let root = std::env::temp_dir().join(format!("meraki-validation-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let iso = root.join("sample.ISO");
+        std::fs::write(&iso, [0u8; 512]).unwrap();
+        let mut device = UsbDevice {
+            id: String::new(), name: String::new(), device_path: String::new(),
+            mount_point: String::new(), mount_points: vec![root.to_string_lossy().into_owned()],
+            file_system: String::new(), total_bytes: 1024, available_bytes: 0,
+            read_only: false, kind: String::new(), transport: String::new(), serial: None,
+        };
+        assert!(validate_iso_for_device(&iso, &device).unwrap_err().contains("próprio dispositivo"));
+        device.mount_points.clear();
+        assert!(validate_iso_for_device(&iso, &device).is_ok());
+        device.total_bytes = 256;
+        assert!(validate_iso_for_device(&iso, &device).is_err());
+        std::fs::remove_file(iso).unwrap();
+        std::fs::remove_dir(root).unwrap();
+    }
 }

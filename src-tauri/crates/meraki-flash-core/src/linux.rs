@@ -35,7 +35,6 @@ struct LsblkDevice {
 struct MountInfo {
     available_bytes: u64,
     file_system: String,
-    read_only: bool,
 }
 
 pub(super) fn discover_removable_devices() -> Result<Vec<UsbDevice>, DiscoveryError> {
@@ -110,7 +109,8 @@ fn to_usb_device(device: LsblkDevice, mount_info: &HashMap<String, MountInfo>) -
         file_system,
         total_bytes: device.size,
         available_bytes: first_info.map_or(0, |info| info.available_bytes),
-        read_only: device.ro || first_info.is_some_and(|info| info.read_only),
+        // ISO9660 montado como somente leitura não torna o hardware protegido.
+        read_only: device.ro,
         kind: "Removable".to_owned(),
         transport: "USB".to_owned(),
         serial,
@@ -122,7 +122,7 @@ fn contains_system_mount(device: &LsblkDevice) -> bool {
         .mountpoints
         .iter()
         .flatten()
-        .any(|mount| mount == "/")
+        .any(|mount| matches!(mount.as_str(), "/" | "/boot" | "/boot/efi" | "/usr" | "/var" | "/home" | "[SWAP]"))
         || device.children.iter().any(contains_system_mount)
 }
 
@@ -160,7 +160,6 @@ fn sysinfo_mounts() -> HashMap<String, MountInfo> {
                 MountInfo {
                     available_bytes: disk.available_space(),
                     file_system: disk.file_system().to_string_lossy().to_uppercase(),
-                    read_only: disk.is_read_only(),
                 },
             )
         })
@@ -170,6 +169,23 @@ fn sysinfo_mounts() -> HashMap<String, MountInfo> {
 #[cfg(test)]
 mod tests {
     use super::{LsblkOutput, devices_from_lsblk};
+
+    #[test]
+    fn blocks_separate_system_partitions_and_keeps_rewritable_iso_media() {
+        for mount in ["/", "/boot", "/boot/efi", "/home", "[SWAP]", "/run/media/user/LIVE"] {
+            let json = serde_json::json!({"blockdevices": [{
+                "path":"/dev/sdb", "name":"USB", "type":"disk", "tran":"usb",
+                "rm":true, "size":16000000000u64, "ro":false, "model":"USB",
+                "serial":"1", "fstype":"iso9660", "mountpoints":[mount]
+            }]});
+            let parsed = serde_json::from_value(json).unwrap();
+            let devices = devices_from_lsblk(parsed);
+            if mount == "/run/media/user/LIVE" {
+                assert_eq!(devices.len(), 1);
+                assert!(!devices[0].read_only);
+            } else { assert!(devices.is_empty(), "{mount}"); }
+        }
+    }
 
     #[test]
     fn keeps_only_removable_usb_and_rejects_system_disk() {

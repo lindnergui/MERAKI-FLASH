@@ -1,6 +1,6 @@
 [package]
 name = "meraki-flash-core"
-version = "0.1.0"
+version = "1.0.0"
 description = "Domínio e descoberta segura de dispositivos do Meraki Flash."
 edition = "2024"
 rust-version = "1.95"

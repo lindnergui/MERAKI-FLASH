@@ -1,4 +1,5 @@
 use super::Reporter;
+use super::sector_io::SectorIo;
 use super::platform;
 use super::protocol::{FlashPhase, FlashProgress};
 use fatfs::{FatType, FileSystem, FormatVolumeOptions, FsOptions, ReadWriteSeek};
@@ -167,6 +168,8 @@ pub fn write(
     let mut prepared = platform::prepare_device(device)?;
     let sector_size = platform::logical_sector_size(&prepared.file)?;
 
+    let mut target = SectorIo::new(&mut prepared.file, sector_size, device.total_bytes)
+        .map_err(|error| format!("geometria do dispositivo inválida: {error}"))?;
     send_status(
         reporter,
         operation_id,
@@ -175,15 +178,15 @@ pub fn write(
         "Criando uma partição MBR/FAT32 compatível com UEFI…",
     );
     let (partition_start, partition_end) =
-        create_partition_table(&mut prepared.file, device.total_bytes, sector_size)?;
+        create_partition_table(&mut target, device.total_bytes, sector_size)?;
     format_fat32(
-        &mut prepared.file,
+        &mut target,
         partition_start,
         partition_end,
         sector_size,
     )?;
 
-    let partition = StreamSlice::new(&mut prepared.file, partition_start, partition_end)
+    let partition = StreamSlice::new(&mut target, partition_start, partition_end)
         .map_err(|error| format!("não foi possível abrir a partição FAT32: {error}"))?;
     let filesystem = FileSystem::new(BufStream::new(partition), FsOptions::new())
         .map_err(|error| format!("não foi possível abrir o FAT32 recém-criado: {error}"))?;
@@ -228,6 +231,7 @@ pub fn write(
         100.0,
         "Sincronizando a tabela de partições e os arquivos…",
     );
+    let _ = target.finish().map_err(|error| format!("falha ao finalizar os setores: {error}"))?;
     prepared
         .file
         .sync_all()
@@ -801,7 +805,7 @@ fn split_output_bytes(directory: &Path) -> Result<u64, String> {
 }
 
 fn create_partition_table(
-    target: &mut File,
+    target: &mut (impl Read + Write + Seek),
     device_size: u64,
     sector_size: u32,
 ) -> Result<(u64, u64), String> {
@@ -848,7 +852,7 @@ fn create_partition_table(
     Ok((start, end))
 }
 
-fn format_fat32(target: &mut File, start: u64, end: u64, sector_size: u32) -> Result<(), String> {
+fn format_fat32(target: &mut (impl Read + Write + Seek), start: u64, end: u64, sector_size: u32) -> Result<(), String> {
     let partition_sectors = (end - start) / u64::from(sector_size);
     let options = FormatVolumeOptions::new()
         .bytes_per_sector(
@@ -1002,7 +1006,7 @@ fn write_unattend_file<T: ReadWriteSeek>(
         .map_err(|error| format!("não foi possível gravar autounattend.xml: {error}"))
 }
 
-fn clear_range(target: &mut File, start: u64, length: u64) -> Result<(), String> {
+fn clear_range(target: &mut (impl Read + Write + Seek), start: u64, length: u64) -> Result<(), String> {
     target
         .seek(SeekFrom::Start(start))
         .map_err(|error| format!("não foi possível posicionar o dispositivo: {error}"))?;

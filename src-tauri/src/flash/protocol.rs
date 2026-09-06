@@ -48,6 +48,7 @@ pub enum FlashPhase {
     Extracting,
     Writing,
     Syncing,
+    Verifying,
     Done,
     Error,
 }

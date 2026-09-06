@@ -6,8 +6,14 @@ pub async fn launch_elevated(encoded_request: String) -> Result<i32, String> {
 
     let executable = std::env::current_exe()
         .map_err(|error| format!("não foi possível localizar o executável: {error}"))?;
-    let output = Command::new("pkexec")
-        .arg(executable)
+    // O helper não deve depender de acesso root à montagem FUSE do usuário.
+    let mut command = Command::new("pkexec");
+    if let Some(appimage) = std::env::var_os("APPIMAGE") {
+        command.arg(appimage).arg("--appimage-extract-and-run");
+    } else {
+        command.arg(executable);
+    }
+    let output = command
         .arg(HELPER_FLAG)
         .arg(encoded_request)
         .kill_on_drop(false)

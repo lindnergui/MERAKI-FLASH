@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Meraki Flash",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "identifier": "com.meraki.flash",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -30,7 +30,11 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["appimage", "rpm", "nsis"],
+    "targets": [
+      "appimage",
+      "rpm",
+      "nsis"
+    ],
     "publisher": "Meraki",
     "homepage": "https://github.com/lindnergui/MERAKI-FLASH",
     "icon": [

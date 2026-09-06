@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { confirm, open } from "@tauri-apps/plugin-dialog";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { UpdateNotice } from "./components/UpdateNotice";
 import {
   ArrowRight,
   Check,
@@ -38,6 +40,7 @@ type FlashPhase =
   | "extracting"
   | "writing"
   | "syncing"
+  | "verifying"
   | "done"
   | "error";
 
@@ -103,6 +106,7 @@ const phaseLabels: Record<FlashPhase, string> = {
   extracting: "Extraindo os arquivos",
   writing: "Gravando a imagem",
   syncing: "Sincronizando os dados",
+  verifying: "Verificando a gravação",
   done: "Pendrive pronto",
   error: "A gravação foi interrompida",
 };
@@ -116,6 +120,10 @@ function App() {
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [progress, setProgress] = useState<FlashProgress>(EMPTY_PROGRESS);
   const [notice, setNotice] = useState<string | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [progressReady, setProgressReady] = useState(false);
+  const startPending = useRef(false);
+  const activeOperation = useRef<string | null>(null);
   const [unattendEnabled, setUnattendEnabled] = useState(false);
   const [unattendOptions, setUnattendOptions] = useState(DEFAULT_UNATTEND_OPTIONS);
   const browserFileInput = useRef<HTMLInputElement>(null);
@@ -137,8 +145,14 @@ function App() {
       !selectedDevice.readOnly &&
       !unattendError,
   );
-  const isBusy = !["idle", "done", "error"].includes(progress.phase);
-  const completedSteps = [operatingSystem, selectedIso, selectedDevice].filter(Boolean).length;
+  const isBusy = isConfirming || !["idle", "done", "error"].includes(progress.phase);
+  const currentStep = progress.phase !== "idle" ? 4 : selectedDevice ? 3 : selectedIso ? 2 : 1;
+  const stepSelections = [Boolean(operatingSystem), Boolean(selectedIso), Boolean(selectedDevice) || progress.phase === "done", progress.phase !== "idle" && progress.phase !== "error"];
+
+  const resetProgress = () => {
+    setProgress(EMPTY_PROGRESS);
+    setNotice(null);
+  };
 
   const refreshDevices = useCallback(async () => {
     setIsRefreshing(true);
@@ -171,21 +185,42 @@ function App() {
     if (!isRunningInTauri()) return;
 
     let unlisten: UnlistenFn | undefined;
+    let disposed = false;
     void listen<FlashProgress>("flash-progress", (event) => {
+      if (!startPending.current || (activeOperation.current && event.payload.operationId !== activeOperation.current)) return;
+      activeOperation.current = event.payload.operationId ?? null;
       setProgress(event.payload);
+      setNotice(null);
       if (event.payload.phase === "done") {
+        startPending.current = false;
         setNotice(event.payload.message ?? "Pendrive gravado com sucesso.");
         setSelectedDeviceId(null);
         void refreshDevices();
       } else if (event.payload.phase === "error") {
+        startPending.current = false;
         setNotice(event.payload.message ?? "A gravação foi interrompida.");
       }
     }).then((dispose) => {
-      unlisten = dispose;
+      if (disposed) dispose();
+      else { unlisten = dispose; setProgressReady(true); }
+    }).catch((error) => {
+      if (!disposed) setNotice(`Não foi possível acompanhar a gravação: ${readableError(error)}`);
     });
 
-    return () => unlisten?.();
+    return () => { disposed = true; unlisten?.(); };
   }, [refreshDevices]);
+
+  useEffect(() => {
+    if (!isRunningInTauri() || !isBusy) return;
+    let disposed = false;
+    let unlisten: UnlistenFn | undefined;
+    void getCurrentWindow().onCloseRequested((event) => {
+      event.preventDefault();
+      setNotice("Aguarde a conclusão da gravação antes de fechar o Meraki Flash.");
+    }).then((dispose) => { if (disposed) dispose(); else unlisten = dispose; })
+      .catch(() => {});
+    return () => { disposed = true; unlisten?.(); };
+  }, [isBusy]);
 
   const selectIso = async () => {
     setNotice(null);
@@ -204,6 +239,7 @@ function App() {
       });
 
       if (typeof path === "string") {
+        resetProgress();
         setSelectedIso({ path, name: fileNameFromPath(path) });
       }
     } catch (error) {
@@ -213,12 +249,12 @@ function App() {
 
   const handleBrowserFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) setSelectedIso({ name: file.name, path: file.name });
+    if (file) { resetProgress(); setSelectedIso({ name: file.name, path: file.name }); }
     event.target.value = "";
   };
 
   const handleStart = async () => {
-    if (!isReady || !operatingSystem || !selectedIso || !selectedDevice) return;
+    if (!isReady || isBusy || startPending.current || !progressReady || !operatingSystem || !selectedIso || !selectedDevice) return;
 
     let unattendXmlContent: string | null = null;
     if (operatingSystem === "windows" && unattendEnabled) {
@@ -235,6 +271,10 @@ function App() {
       }
     }
 
+    startPending.current = true;
+    activeOperation.current = null;
+    setIsConfirming(true);
+    try {
     const approved = await confirm(
       `TODOS OS DADOS de ${selectedDevice.name} (${formatBytes(selectedDevice.totalBytes)}, ${selectedDevice.devicePath}) serão apagados.${unattendXmlContent ? "\n\nO perfil de instalação automática será incluído na raiz do pendrive." : ""}\n\nConfirme apenas se este é o pendrive correto.`,
       {
@@ -244,9 +284,9 @@ function App() {
         cancelLabel: "Cancelar",
       },
     );
-    if (!approved) return;
+    if (!approved) { startPending.current = false; return; }
 
-    setNotice("Autorize a operação na janela de autenticação do sistema.");
+    setNotice(null);
     setProgress({
       phase: "preparing",
       percentage: 0,
@@ -255,7 +295,6 @@ function App() {
       message: "Aguardando autorização administrativa…",
     });
 
-    try {
       await invoke<{ operationId: string }>("start_flash", {
         request: {
           isoPath: selectedIso.path,
@@ -265,6 +304,7 @@ function App() {
         },
       });
     } catch (error) {
+      startPending.current = false;
       const message = readableError(error);
       setProgress({
         phase: "error",
@@ -274,6 +314,8 @@ function App() {
         message,
       });
       setNotice(message);
+    } finally {
+      setIsConfirming(false);
     }
   };
 
@@ -289,21 +331,15 @@ function App() {
             <div>
               <div className="flex items-baseline gap-2">
                 <h1 className="text-lg font-semibold tracking-[-0.02em]">Meraki Flash</h1>
-                <span className="rounded-full border border-[#00F0FF]/15 bg-[#00F0FF]/[0.06] px-2 py-0.5 text-[9px] font-bold tracking-[0.18em] text-[#79f7ff] uppercase">
-                  Alpha
-                </span>
               </div>
               <p className="mt-0.5 text-xs text-white/40">Crie. Grave. Inicialize.</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2 text-xs text-white/45">
-            <ShieldCheck className="size-4 text-[#5fe8d3]" />
-            <span className="hidden sm:inline">Modo de proteção ativo</span>
-          </div>
         </header>
 
         <main className="flex flex-1 flex-col py-7 lg:py-9">
+          <UpdateNotice />
           <div className="mb-7 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
               <p className="mb-2 flex items-center gap-2 text-[11px] font-semibold tracking-[0.2em] text-[#5cefff] uppercase">
@@ -311,13 +347,13 @@ function App() {
                 Nova mídia inicializável
               </p>
               <h2 className="max-w-2xl text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
-                Seu sistema, pronto para levar.
+                Seu sistema, pronto para uso
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-white/45">
                 Escolha a imagem e o pendrive. O Meraki cuida do restante com segurança.
               </p>
             </div>
-            <StepRail completedSteps={completedSteps} />
+            <StepRail currentStep={currentStep} selections={stepSelections} />
           </div>
 
           <div className="grid flex-1 gap-4 min-[1080px]:grid-cols-[1fr_1fr_1.12fr]">
@@ -339,7 +375,7 @@ function App() {
                       type="button"
                       disabled={isBusy}
                       aria-pressed={selected}
-                      onClick={() => setOperatingSystem(option.id)}
+                      onClick={() => { resetProgress(); setOperatingSystem(option.id); }}
                       className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00F0FF]/70 ${
                         selected
                           ? "border-[#00F0FF]/35 bg-[#00F0FF]/[0.07] shadow-[inset_0_0_28px_rgba(0,240,255,0.03)]"
@@ -401,7 +437,7 @@ function App() {
                 >
                   {selectedIso ? <FileArchive className="size-5" /> : <Upload className="size-5" />}
                 </span>
-                <span className="mt-4 max-w-full text-sm font-medium">
+                <span className="mt-4 max-w-full break-all text-sm font-medium">
                   {selectedIso ? selectedIso.name : "Clique para escolher uma ISO"}
                 </span>
                 <span className="mt-1 max-w-full truncate text-xs text-white/35">
@@ -458,7 +494,7 @@ function App() {
                         type="button"
                         aria-pressed={selected}
                         disabled={device.readOnly || isBusy}
-                        onClick={() => setSelectedDeviceId(device.id)}
+                        onClick={() => { resetProgress(); setSelectedDeviceId(device.id); }}
                         className={`group flex items-center gap-3 rounded-2xl border p-3.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00F0FF]/70 disabled:cursor-not-allowed disabled:opacity-45 ${
                           selected
                             ? "border-[#00F0FF]/35 bg-[#00F0FF]/[0.065]"
@@ -557,7 +593,7 @@ function App() {
             <button
               type="button"
               onClick={() => void handleStart()}
-              disabled={!isReady || isBusy}
+              disabled={!isReady || isBusy || !progressReady || isRefreshing}
               className="group relative min-w-[210px] overflow-hidden rounded-2xl bg-gradient-to-r from-[#00F0FF] via-[#2878ff] to-[#8A2BE2] p-px shadow-[0_12px_38px_rgba(36,122,255,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_42px_rgba(36,122,255,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00F0FF]/70 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-35 disabled:shadow-none"
             >
               <span className="flex items-center justify-center gap-2 rounded-[15px] bg-[#101119]/90 px-5 py-3.5 text-sm font-semibold transition group-hover:bg-[#101119]/75">
@@ -568,7 +604,7 @@ function App() {
                 )}
                 {isBusy
                   ? progress.phase === "preparing"
-                    ? "Autorizando…"
+                    ? "Preparando…"
                     : progress.phase === "analyzing"
                       ? "Analisando…"
                       : progress.phase === "splitting"
@@ -577,6 +613,8 @@ function App() {
                           ? "Formatando…"
                     : progress.phase === "syncing"
                       ? "Sincronizando…"
+                      : progress.phase === "verifying"
+                        ? "Verificando…"
                       : progress.phase === "extracting"
                         ? "Extraindo…"
                       : "Gravando…"
@@ -647,15 +685,17 @@ function SectionHeading({
   );
 }
 
-function StepRail({ completedSteps }: { completedSteps: number }) {
+function StepRail({ currentStep, selections }: { currentStep: number; selections: boolean[] }) {
   return (
     <div className="flex items-center gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.018] px-3 py-2.5">
       {[1, 2, 3, 4].map((step, index) => {
-        const complete = step <= completedSteps;
-        const active = step === Math.min(completedSteps + 1, 4);
+        const complete = selections[index];
+        const active = step === currentStep;
         return (
           <div key={step} className="flex items-center gap-2">
             <span
+              aria-current={active ? "step" : undefined}
+              aria-label={`Etapa ${step}${complete ? " selecionada" : ""}`}
               className={`flex size-6 items-center justify-center rounded-full text-[10px] font-bold transition ${
                 complete
                   ? "bg-[#5fe8d3] text-[#071310]"
@@ -664,7 +704,7 @@ function StepRail({ completedSteps }: { completedSteps: number }) {
                     : "border border-white/[0.09] text-white/28"
               }`}
             >
-              {complete ? <Check className="size-3" strokeWidth={3} /> : step}
+              {step}
             </span>
             {index < 3 && (
               <span className={`h-px w-5 ${complete ? "bg-[#5fe8d3]/45" : "bg-white/[0.08]"}`} />
@@ -717,9 +757,11 @@ function formatBytes(bytes: number) {
 }
 
 function formatEta(seconds: number) {
+  if (seconds <= 0) return "Concluído";
   if (seconds < 60) return `${Math.max(1, Math.round(seconds))}s restantes`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.round(seconds % 60);
+  const rounded = Math.round(seconds);
+  const minutes = Math.floor(rounded / 60);
+  const remainingSeconds = rounded % 60;
   return `${minutes}min ${remainingSeconds}s restantes`;
 }
 

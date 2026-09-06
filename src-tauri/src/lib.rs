@@ -9,7 +9,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::usb::list_usb_devices,
-            commands::flash::start_flash
+            commands::flash::start_flash,
+            commands::updates::open_releases_page
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o Meraki Flash");
