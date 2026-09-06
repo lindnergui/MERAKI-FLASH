@@ -55,6 +55,7 @@ try{
  await page.setViewportSize({width:1180,height:780});
  await page.getByRole('button',{name:'Gravar pendrive',exact:true}).click();
  await page.getByText('Aguardando autorização administrativa…',{exact:true}).waitFor();await step(4);
+ assert.equal(await page.evaluate(()=>window.__mock.count),1);
  await page.evaluate(()=>window.__emit('preparing','Validando novamente o dispositivo…'));
  await page.getByText('Validando novamente o dispositivo…',{exact:true}).waitFor();
  assert.equal(await page.getByText('Aguardando autorização administrativa…',{exact:true}).count(),0);

@@ -423,7 +423,7 @@ fn write_image(
             let elapsed = started.elapsed().as_secs_f64().max(0.001);
             let speed = written as f64 / elapsed;
             let eta = (speed > 0.0).then(|| ((total_bytes - written) as f64 / speed).ceil() as u64);
-            let percentage = written as f64 * 100.0 / total_bytes as f64;
+            let percentage = written as f64 * 90.0 / total_bytes as f64;
             let _ = reporter.send(FlashProgress::new(
                 operation_id,
                 FlashPhase::Writing,
@@ -439,7 +439,7 @@ fn write_image(
     let _ = reporter.send(FlashProgress::new(
         operation_id,
         FlashPhase::Syncing,
-        100.0,
+        90.0,
         0.0,
         None,
         Some("Sincronizando os dados com o dispositivo…".to_owned()),
@@ -451,7 +451,7 @@ fn write_image(
         .map_err(|error| error.to_string())?;
     source.seek(SeekFrom::Start(0)).map_err(|error| error.to_string())?;
     let _ = reporter.send(FlashProgress::new(operation_id, FlashPhase::Verifying,
-        0.0, 0.0, None, Some("Conferindo os dados gravados…".to_owned())));
+        90.0, 0.0, None, Some("Conferindo os dados gravados…".to_owned())));
     let mut verified = 0u64;
     let mut actual = vec![0; BUFFER_SIZE];
     while verified < total_bytes {
@@ -464,7 +464,7 @@ fn write_image(
         verified += count as u64;
         if last_report.elapsed() >= Duration::from_millis(250) || verified == total_bytes {
             let _ = reporter.send(FlashProgress::new(operation_id, FlashPhase::Verifying,
-                verified as f64 * 100.0 / total_bytes as f64, 0.0, None,
+                90.0 + verified as f64 * 10.0 / total_bytes as f64, 0.0, None,
                 Some("Conferindo os dados gravados…".to_owned())));
             last_report = Instant::now();
         }
@@ -616,7 +616,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(envelopes.iter().any(|event| event.progress.phase == FlashPhase::Verifying && event.progress.percentage == 100.0));
         assert!(envelopes.iter().any(|event| {
-            event.progress.phase == FlashPhase::Writing && event.progress.percentage == 100.0
+            event.progress.phase == FlashPhase::Writing && event.progress.percentage == 90.0
         }));
         assert!(
             envelopes
