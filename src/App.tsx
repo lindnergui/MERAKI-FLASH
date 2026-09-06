@@ -120,6 +120,7 @@ function App() {
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [progress, setProgress] = useState<FlashProgress>(EMPTY_PROGRESS);
   const [notice, setNotice] = useState<string | null>(null);
+  const [selectedStep, setSelectedStep] = useState(1);
   const [isConfirming, setIsConfirming] = useState(false);
   const [progressReady, setProgressReady] = useState(false);
   const startPending = useRef(false);
@@ -146,7 +147,7 @@ function App() {
       !unattendError,
   );
   const isBusy = isConfirming || !["idle", "done", "error"].includes(progress.phase);
-  const currentStep = progress.phase !== "idle" ? 4 : selectedDevice ? 3 : selectedIso ? 2 : 1;
+  const currentStep = progress.phase !== "idle" ? 4 : selectedStep;
   const stepSelections = [Boolean(operatingSystem), Boolean(selectedIso), Boolean(selectedDevice) || progress.phase === "done", progress.phase !== "idle" && progress.phase !== "error"];
 
   const resetProgress = () => {
@@ -240,6 +241,7 @@ function App() {
 
       if (typeof path === "string") {
         resetProgress();
+        setSelectedStep(2);
         setSelectedIso({ path, name: fileNameFromPath(path) });
       }
     } catch (error) {
@@ -249,7 +251,7 @@ function App() {
 
   const handleBrowserFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) { resetProgress(); setSelectedIso({ name: file.name, path: file.name }); }
+    if (file) { resetProgress(); setSelectedStep(2); setSelectedIso({ name: file.name, path: file.name }); }
     event.target.value = "";
   };
 
@@ -275,25 +277,25 @@ function App() {
     activeOperation.current = null;
     setIsConfirming(true);
     try {
-    const approved = await confirm(
-      `TODOS OS DADOS de ${selectedDevice.name} (${formatBytes(selectedDevice.totalBytes)}, ${selectedDevice.devicePath}) serão apagados.${unattendXmlContent ? "\n\nO perfil de instalação automática será incluído na raiz do pendrive." : ""}\n\nConfirme apenas se este é o pendrive correto.`,
-      {
-        title: "Confirmar gravação destrutiva",
-        kind: "warning",
-        okLabel: "Apagar e gravar",
-        cancelLabel: "Cancelar",
-      },
-    );
-    if (!approved) { startPending.current = false; return; }
+      const approved = await confirm(
+        `TODOS OS DADOS de ${selectedDevice.name} (${formatBytes(selectedDevice.totalBytes)}, ${selectedDevice.devicePath}) serão apagados.${unattendXmlContent ? "\n\nO perfil de instalação automática será incluído na raiz do pendrive." : ""}\n\nConfirme apenas se este é o pendrive correto.`,
+        {
+          title: "Confirmar gravação destrutiva",
+          kind: "warning",
+          okLabel: "Apagar e gravar",
+          cancelLabel: "Cancelar",
+        },
+      );
+      if (!approved) { startPending.current = false; return; }
 
-    setNotice(null);
-    setProgress({
-      phase: "preparing",
-      percentage: 0,
-      bytesPerSecond: 0,
-      etaSeconds: null,
-      message: "Aguardando autorização administrativa…",
-    });
+      setNotice(null);
+      setProgress({
+        phase: "preparing",
+        percentage: 0,
+        bytesPerSecond: 0,
+        etaSeconds: null,
+        message: "Aguardando autorização administrativa…",
+      });
 
       await invoke<{ operationId: string }>("start_flash", {
         request: {
@@ -375,7 +377,7 @@ function App() {
                       type="button"
                       disabled={isBusy}
                       aria-pressed={selected}
-                      onClick={() => { resetProgress(); setOperatingSystem(option.id); }}
+                      onClick={() => { resetProgress(); setSelectedStep(1); setOperatingSystem(option.id); }}
                       className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00F0FF]/70 ${
                         selected
                           ? "border-[#00F0FF]/35 bg-[#00F0FF]/[0.07] shadow-[inset_0_0_28px_rgba(0,240,255,0.03)]"
@@ -494,7 +496,7 @@ function App() {
                         type="button"
                         aria-pressed={selected}
                         disabled={device.readOnly || isBusy}
-                        onClick={() => { resetProgress(); setSelectedDeviceId(device.id); }}
+                        onClick={() => { resetProgress(); setSelectedStep(3); setSelectedDeviceId(device.id); }}
                         className={`group flex items-center gap-3 rounded-2xl border p-3.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00F0FF]/70 disabled:cursor-not-allowed disabled:opacity-45 ${
                           selected
                             ? "border-[#00F0FF]/35 bg-[#00F0FF]/[0.065]"

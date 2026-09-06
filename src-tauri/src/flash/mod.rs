@@ -518,6 +518,19 @@ impl Reporter {
     }
 }
 
+fn validate_hybrid_image(source: &mut File) -> Result<(), String> {
+    let mut header = [0u8; 512];
+    source.seek(SeekFrom::Start(0)).and_then(|_| source.read_exact(&mut header))
+        .map_err(|error| format!("não foi possível validar a imagem híbrida: {error}"))?;
+    source.seek(SeekFrom::Start(0)).map_err(|error| error.to_string())?;
+    if header[510..] != [0x55, 0xaa] || !header[446..510].as_chunks::<16>().0.iter()
+        .any(|entry| entry[4] != 0 && entry[12..16] != [0, 0, 0, 0]) {
+        return Err("a imagem Linux não contém uma tabela de partições híbrida inicializável; confira a ISO e o sistema selecionado".to_owned());
+    }
+    Ok(())
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -611,16 +624,4 @@ mod tests {
                 .any(|event| event.progress.phase == FlashPhase::Syncing)
         );
     }
-}
-
-fn validate_hybrid_image(source: &mut File) -> Result<(), String> {
-    let mut header = [0u8; 512];
-    source.seek(SeekFrom::Start(0)).and_then(|_| source.read_exact(&mut header))
-        .map_err(|error| format!("não foi possível validar a imagem híbrida: {error}"))?;
-    source.seek(SeekFrom::Start(0)).map_err(|error| error.to_string())?;
-    if header[510..] != [0x55, 0xaa] || !header[446..510].chunks_exact(16)
-        .any(|entry| entry[4] != 0 && entry[12..16] != [0, 0, 0, 0]) {
-        return Err("a imagem Linux não contém uma tabela de partições híbrida inicializável; confira a ISO e o sistema selecionado".to_owned());
-    }
-    Ok(())
 }

@@ -282,3 +282,12 @@ automática, e falhas de rede não interrompem o uso.
 
 A v0.1.0 já distribuída não contém esse recurso: seus usuários precisam instalar
 a v1.0.0 manualmente uma vez para receber avisos de lançamentos futuros.
+
+### Regressão visual opcional
+
+Com `npm run preview -- --port 1420` em execução, instale `playwright` sem salvar
+no manifesto (`npm install --no-save playwright`), instale seu Chromium no Linux
+(`npx playwright install chromium`) e execute `node tests/interface.mjs`. No
+Windows o teste usa o Edge instalado. A simulação não chama o motor nativo nem
+acessa discos físicos. Ela cobre quatro larguras de janela, etapas, autorização,
+erros, bloqueios e a preferência de atualização. A captura fica em `.qa/`.
