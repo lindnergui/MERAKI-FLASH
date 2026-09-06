@@ -1,4 +1,10 @@
-name: Release Meraki Flash
+name: Verificação e publicação do Meraki Flash
+run-name: >-
+  ${{ startsWith(github.ref, 'refs/tags/')
+      && format('Lançamento do Meraki Flash — {0}', github.ref_name)
+      || github.event_name == 'workflow_dispatch'
+      && format('Verificação manual do Meraki Flash — {0}', github.ref_name)
+      || format('Verificação do Meraki Flash — {0}', github.ref_name) }}
 
 on:
   workflow_dispatch:
@@ -25,7 +31,7 @@ jobs:
           - name: Linux — AppImage e RPM
             platform: ubuntu-22.04
             bundles: appimage,rpm
-          - name: Windows — NSIS EXE
+          - name: Windows — instalador EXE
             platform: windows-latest
             bundles: nsis
 
@@ -57,7 +63,7 @@ jobs:
           workspaces: ./src-tauri -> target
           cache-on-failure: true
 
-      - name: Instalar dependências do frontend
+      - name: Instalar dependências da interface
         run: npm ci
 
       - name: Testar interface e avisos de atualização
@@ -69,7 +75,7 @@ jobs:
       - name: Testar motores de gravação
         run: cargo test --locked --workspace --manifest-path src-tauri/Cargo.toml
 
-      - name: Analisar Rust
+      - name: Analisar o código Rust
         run: cargo clippy --locked --workspace --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
       - name: Validar versão da tag
@@ -95,7 +101,7 @@ jobs:
           args: --bundles ${{ matrix.bundles }}
 
   publish:
-    name: Publicar release completa
+    name: Publicar nova versão
     needs: build-and-release
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
