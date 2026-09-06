@@ -97,7 +97,7 @@ pub(super) fn discover_removable_devices() -> Result<Vec<UsbDevice>, DiscoveryEr
         })
         .collect::<Vec<_>>();
 
-    devices.sort_by(|left, right| left.name.to_lowercase().cmp(&right.name.to_lowercase()));
+    devices.sort_by_key(|device| device.name.to_lowercase());
     Ok(devices)
 }
 
@@ -105,3 +105,4 @@ fn clean_value(value: String) -> Option<String> {
     let value = value.trim().to_owned();
     (!value.is_empty()).then_some(value)
 }
+

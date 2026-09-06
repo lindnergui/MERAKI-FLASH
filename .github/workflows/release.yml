@@ -55,6 +55,7 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: ./src-tauri -> target
+          cache-on-failure: true
 
       - name: Instalar dependências do frontend
         run: npm ci
@@ -109,3 +110,4 @@ jobs:
           gh release view "$RELEASE_TAG" --json assets > assets.json
           node -e "const a=require('./assets.json').assets; for(const suffix of ['.AppImage','.rpm','-setup.exe']) if(!a.some(x=>x.name.endsWith(suffix)&&x.size>0)) throw Error('Artefato ausente: '+suffix)"
           gh release edit "$RELEASE_TAG" --draft=false --latest --notes-file RELEASE_NOTES.md
+
